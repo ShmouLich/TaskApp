@@ -13,10 +13,6 @@
 
 <p>View and filter tasks in the system.</p>
 
-<div class="mb-3">
-    <a href="/tasks/create" class="btn btn-success">Create New Task</a>
-</div>
-
 <!-- Filters -->
 <div class="card mb-4">
     <div class="card-body">
@@ -37,7 +33,7 @@
             </div>
 
             <div class="col-md-3">
-                <label class="form-label">Created By (Assignor)</label>
+                <label class="form-label">Created By (Assigner)</label>
                 <select class="form-select" @onchange="OnCreatorFilterChanged">
                     <option value="">All Users</option>
                     @if (users != null)
