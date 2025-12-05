@@ -1,26 +1,209 @@
 @page "/tasks"
 @rendermode InteractiveServer
 @using TaskApp.Models
+@using TaskApp.Enums
 @using TaskApp.Services.Interfaces
+@using Microsoft.AspNetCore.Identity
 @inject ITaskService TaskService
+@inject UserManager<User> UserManager
 
 <PageTitle>All Tasks</PageTitle>
 
 <h1>All Tasks</h1>
 
-<p>View all tasks in the system.</p>
+<p>View and filter tasks in the system.</p>
 
 <div class="mb-3">
     <a href="/tasks/create" class="btn btn-success">Create New Task</a>
 </div>
 
-<TaskListComponent Tasks="@tasks" />
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Filters</h5>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Assigned To (Solver)</label>
+                <select class="form-select" @onchange="OnAssignedFilterChanged">
+                    <option value="">All Users</option>
+                    @if (users != null)
+                    {
+                        @foreach (var user in users)
+                        {
+                            <option value="@user.Id">@user.Name @user.Surname (@user.Email)</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Created By (Assignor)</label>
+                <select class="form-select" @onchange="OnCreatorFilterChanged">
+                    <option value="">All Users</option>
+                    @if (users != null)
+                    {
+                        @foreach (var user in users)
+                        {
+                            <option value="@user.Id">@user.Name @user.Surname (@user.Email)</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select class="form-select" @onchange="OnStatusFilterChanged">
+                    <option value="">All Statuses</option>
+                    <option value="unresolved">Unresolved Only</option>
+                    @foreach (TaskItemStatus status in Enum.GetValues(typeof(TaskItemStatus)))
+                    {
+                        <option value="@((int)status)">@status</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Special Filters</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="overdueOnly" @onchange="OnOverdueFilterChanged">
+                    <label class="form-check-label" for="overdueOnly">
+                        Overdue Tasks Only
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="overdueChecklist" @onchange="OnOverdueChecklistFilterChanged">
+                    <label class="form-check-label" for="overdueChecklist">
+                        Has Overdue Checklist
+                    </label>
+                </div>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-secondary w-100" @onclick="ClearFilters">Clear Filters</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Task List -->
+<TaskListComponent Tasks="@filteredTasks" />
 
 @code {
-    private List<TaskItem>? tasks;
+    private List<TaskItem>? allTasks;
+    private List<TaskItem>? filteredTasks;
+    private List<User>? users;
+
+    // Filter values
+    private string? selectedAssignedId;
+    private string? selectedCreatorId;
+    private string? selectedStatus;
+    private bool overdueOnly = false;
+    private bool overdueChecklistOnly = false;
 
     protected override async Task OnInitializedAsync()
     {
-        tasks = await TaskService.GetAllTasksAsync();
+        allTasks = await TaskService.GetAllTasksAsync();
+        filteredTasks = allTasks;
+
+        // Get all users for dropdowns
+        users = UserManager.Users.ToList();
+    }
+
+    private void OnAssignedFilterChanged(ChangeEventArgs e)
+    {
+        selectedAssignedId = e.Value?.ToString();
+        ApplyFilters();
+    }
+
+    private void OnCreatorFilterChanged(ChangeEventArgs e)
+    {
+        selectedCreatorId = e.Value?.ToString();
+        ApplyFilters();
+    }
+
+    private void OnStatusFilterChanged(ChangeEventArgs e)
+    {
+        selectedStatus = e.Value?.ToString();
+        ApplyFilters();
+    }
+
+    private void OnOverdueFilterChanged(ChangeEventArgs e)
+    {
+        overdueOnly = (bool)(e.Value ?? false);
+        ApplyFilters();
+    }
+
+    private void OnOverdueChecklistFilterChanged(ChangeEventArgs e)
+    {
+        overdueChecklistOnly = (bool)(e.Value ?? false);
+        ApplyFilters();
+    }
+
+    private void ClearFilters()
+    {
+        selectedAssignedId = null;
+        selectedCreatorId = null;
+        selectedStatus = null;
+        overdueOnly = false;
+        overdueChecklistOnly = false;
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        if (allTasks == null)
+        {
+            filteredTasks = null;
+            return;
+        }
+
+        var query = allTasks.AsQueryable();
+
+        // Filter by assigned user
+        if (!string.IsNullOrEmpty(selectedAssignedId))
+        {
+            query = query.Where(t => t.AssignedId == selectedAssignedId);
+        }
+
+        // Filter by creator
+        if (!string.IsNullOrEmpty(selectedCreatorId))
+        {
+            query = query.Where(t => t.CreatorId == selectedCreatorId);
+        }
+
+        // Filter by status
+        if (!string.IsNullOrEmpty(selectedStatus))
+        {
+            if (selectedStatus == "unresolved")
+            {
+                query = query.Where(t => t.Status != TaskItemStatus.Finished && t.Status != TaskItemStatus.Cancelled);
+            }
+            else if (int.TryParse(selectedStatus, out int statusValue))
+            {
+                query = query.Where(t => (int)t.Status == statusValue);
+            }
+        }
+
+        // Filter overdue tasks
+        if (overdueOnly)
+        {
+            var now = DateTime.Now;
+            query = query.Where(t => t.DueDate.HasValue
+                && t.DueDate.Value < now
+                && t.Status != TaskItemStatus.Finished
+                && t.Status != TaskItemStatus.Cancelled);
+        }
+
+        // Filter tasks with overdue checklist items
+        if (overdueChecklistOnly)
+        {
+            var now = DateTime.Now;
+            query = query.Where(t => t.CheckListItems.Any(c =>
+                c.DueDate.HasValue
+                && c.DueDate.Value < now
+                && !c.IsChecked));
+        }
+
+        filteredTasks = query.ToList();
     }
 }

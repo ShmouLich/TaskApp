@@ -49,7 +49,7 @@ public static class DbSeeder
             .RuleFor(t => t.AssignedId, f => f.PickRandom(users).Id)
             .RuleFor(t => t.CreatorId, f => f.PickRandom(users).Id)
             .RuleFor(t => t.CreatedDate, f => f.Date.Past())
-            .RuleFor(t => t.DueDate, f => f.Date.Future())
+            .RuleFor(t => t.DueDate, f => f.Random.Bool(0.6f) ? f.Date.Future() : f.Date.Past()) // some tasks are overdue
             .RuleFor(t => t.Priority, f => f.PickRandom<TaskPriority>())
             .RuleFor(t => t.Status, f => f.PickRandom<TaskItemStatus>())
             .RuleFor(t => t.CompletedDate,
@@ -90,10 +90,21 @@ public static class DbSeeder
                 .RuleFor(c => c.Description, f => f.Lorem.Sentence(10))
                 .RuleFor(c => c.IsChecked, f => f.Random.Bool())
                 .RuleFor(c => c.Order, f => f.IndexFaker)
-                .RuleFor(c => c.DueDate, f => f.Date.Between(task.CreatedDate, task.DueDate ?? DateTime.Now.AddMonths(1)))
+                .RuleFor(c => c.DueDate, f =>
+                // some items are overdue
+                {
+                    if (f.Random.Bool(0.7f))
+                    {
+                        return f.Date.Between(task.CreatedDate, task.DueDate ?? DateTime.Now.AddMonths(1));
+                    }
+                    else
+                    {
+                        return f.Date.Past();
+                    }
+                })
                 .RuleFor(c => c.CompletedDate, (f, c) => c.IsChecked ? f.Date.Between(task.CreatedDate, DateTime.Now) : null)
                 .Generate(random.Next(2, 7));
-            
+
             checkListItems.AddRange(checkListItem);
         }
         

@@ -22,6 +22,7 @@ public class TaskService : ITaskService
             .Include(t => t.Company)
             .Include(t => t.Creator)
             .Include(t => t.Assigned)
+            .Include(t => t.CheckListItems)
             .OrderByDescending(t => t.CreatedDate)
             .ToListAsync();
     }
