@@ -1,5 +1,4 @@
 @page "/account/register"
-@rendermode InteractiveServer
 @attribute [AllowAnonymous]
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Authorization
@@ -74,8 +73,9 @@
 
         if (result.Succeeded)
         {
-            await SignInManager.SignInAsync(user, isPersistent: false);
-            Navigation.NavigateTo("/", true);
+            // Can't auto-sign in with InteractiveServer render mode
+            // Redirect to login page instead
+            Navigation.NavigateTo("/account/login?registered=true", true);
         }
         else
         {

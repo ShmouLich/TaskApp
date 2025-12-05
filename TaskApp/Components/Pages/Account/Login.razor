@@ -1,5 +1,4 @@
 @page "/account/login"
-@rendermode InteractiveServer
 @attribute [AllowAnonymous]
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Authorization
@@ -13,6 +12,13 @@
 
 <div class="row">
     <div class="col-md-4">
+        @if (showRegistrationSuccess)
+        {
+            <div class="alert alert-success" role="alert">
+                Registration successful! Please login with your new account.
+            </div>
+        }
+
         @if (!string.IsNullOrEmpty(errorMessage))
         {
             <div class="alert alert-danger" role="alert">
@@ -48,6 +54,13 @@
     [SupplyParameterFromForm]
     private LoginModel loginModel { get; set; } = new();
     private string? errorMessage;
+    private bool showRegistrationSuccess;
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(Navigation.Uri);
+        showRegistrationSuccess = uri.Query.Contains("registered=true");
+    }
 
     private async Task HandleLogin()
     {
