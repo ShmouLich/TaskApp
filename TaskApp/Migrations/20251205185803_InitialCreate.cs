@@ -245,7 +245,8 @@ namespace TaskApp.Migrations
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
                     FileName = table.Column<string>(type: "TEXT", nullable: false),
-                    FilePath = table.Column<string>(type: "TEXT", nullable: false),
+                    ContentType = table.Column<string>(type: "TEXT", nullable: false),
+                    FileData = table.Column<byte[]>(type: "BLOB", nullable: false),
                     FileSize = table.Column<long>(type: "INTEGER", nullable: false),
                     UploadedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     TaskItemId = table.Column<int>(type: "INTEGER", nullable: false),
@@ -276,6 +277,8 @@ namespace TaskApp.Migrations
                         .Annotation("Sqlite:Autoincrement", true),
                     Description = table.Column<string>(type: "TEXT", nullable: false),
                     IsChecked = table.Column<bool>(type: "INTEGER", nullable: false),
+                    DueDate = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    CompletedDate = table.Column<DateTime>(type: "TEXT", nullable: true),
                     Order = table.Column<int>(type: "INTEGER", nullable: false),
                     TaskItemId = table.Column<int>(type: "INTEGER", nullable: false)
                 },

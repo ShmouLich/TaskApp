@@ -11,8 +11,8 @@ using TaskApp.Data;
 namespace TaskApp.Migrations
 {
     [DbContext(typeof(TaskAppDbContext))]
-    [Migration("20251205135841_AddChecklistDueDate")]
-    partial class AddChecklistDueDate
+    [Migration("20251205185803_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -234,11 +234,15 @@ namespace TaskApp.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("FileName")
+                    b.Property<string>("ContentType")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("FilePath")
+                    b.Property<byte[]>("FileData")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("FileName")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
