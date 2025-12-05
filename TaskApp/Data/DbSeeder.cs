@@ -90,6 +90,8 @@ public static class DbSeeder
                 .RuleFor(c => c.Description, f => f.Lorem.Sentence(10))
                 .RuleFor(c => c.IsChecked, f => f.Random.Bool())
                 .RuleFor(c => c.Order, f => f.IndexFaker)
+                .RuleFor(c => c.DueDate, f => f.Date.Between(task.CreatedDate, task.DueDate ?? DateTime.Now.AddMonths(1)))
+                .RuleFor(c => c.CompletedDate, (f, c) => c.IsChecked ? f.Date.Between(task.CreatedDate, DateTime.Now) : null)
                 .Generate(random.Next(2, 7));
             
             checkListItems.AddRange(checkListItem);
