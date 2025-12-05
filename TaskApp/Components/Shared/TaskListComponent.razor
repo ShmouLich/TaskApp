@@ -1,0 +1,103 @@
+@using TaskApp.Models
+@using TaskApp.Enums
+
+@if (Tasks == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!Tasks.Any())
+{
+    <p><em>No tasks found.</em></p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Company</th>
+                    <th>Description</th>
+                    <th>Creator</th>
+                    <th>Assigned To</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Due Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var task in Tasks)
+                {
+                    <tr>
+                        <td>@task.Id</td>
+                        <td>@task.Company?.Name</td>
+                        <td>
+                            <div style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                @task.Description
+                            </div>
+                        </td>
+                        <td>@task.Creator?.Name @task.Creator?.Surname</td>
+                        <td>@task.Assigned?.Name @task.Assigned?.Surname</td>
+                        <td>
+                            <span class="badge bg-@GetPriorityColor(task.Priority)">
+                                @task.Priority
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-@GetStatusColor(task.Status)">
+                                @task.Status
+                            </span>
+                        </td>
+                        <td>@task.CreatedDate.ToShortDateString()</td>
+                        <td>
+                            @if (task.DueDate.HasValue)
+                            {
+                                <span class="@(task.DueDate < DateTime.Now && task.Status != TaskItemStatus.Finished ? "text-danger fw-bold" : "")">
+                                    @task.DueDate.Value.ToShortDateString()
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        <td>
+                            <a href="/tasks/@task.Id" class="btn btn-sm btn-primary">View</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public List<TaskItem>? Tasks { get; set; }
+
+    private string GetPriorityColor(TaskPriority priority)
+    {
+        return priority switch
+        {
+            TaskPriority.Low => "secondary",
+            TaskPriority.Medium => "info",
+            TaskPriority.High => "warning",
+            TaskPriority.Critical => "danger",
+            _ => "secondary"
+        };
+    }
+
+    private string GetStatusColor(TaskItemStatus status)
+    {
+        return status switch
+        {
+            TaskItemStatus.New => "primary",
+            TaskItemStatus.InProgress => "info",
+            TaskItemStatus.Finished => "success",
+            TaskItemStatus.Cancelled => "dark",
+            _ => "secondary"
+        };
+    }
+}

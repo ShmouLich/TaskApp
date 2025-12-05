@@ -1,0 +1,26 @@
+@page "/tasks"
+@rendermode InteractiveServer
+@using TaskApp.Models
+@using TaskApp.Services.Interfaces
+@inject ITaskService TaskService
+
+<PageTitle>All Tasks</PageTitle>
+
+<h1>All Tasks</h1>
+
+<p>View all tasks in the system.</p>
+
+<div class="mb-3">
+    <a href="/tasks/create" class="btn btn-success">Create New Task</a>
+</div>
+
+<TaskListComponent Tasks="@tasks" />
+
+@code {
+    private List<TaskItem>? tasks;
+
+    protected override async Task OnInitializedAsync()
+    {
+        tasks = await TaskService.GetAllTasksAsync();
+    }
+}
