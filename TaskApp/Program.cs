@@ -32,6 +32,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddControllers();
 builder.Services.AddAuthorizationCore();
 
 builder.Services.AddScoped<ITaskService, TaskService>();
@@ -59,6 +60,7 @@ app.UseAuthorization();
 
 app.UseAntiforgery();
 
+app.MapControllers();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

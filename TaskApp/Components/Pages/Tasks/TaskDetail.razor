@@ -1,0 +1,477 @@
+@page "/tasks/{id:int}"
+@rendermode InteractiveServer
+@using TaskApp.Models
+@using TaskApp.Enums
+@using TaskApp.Services.Interfaces
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Security.Claims
+@inject ITaskService TaskService
+@inject ICommentService CommentService
+@inject ICheckListService CheckListService
+@inject ICompanyService CompanyService
+@inject IDocumentService DocumentService
+@inject UserManager<User> UserManager
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Task Details - @task?.Id</PageTitle>
+
+@if (task == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Task #@task.Id</h1>
+        <a href="/tasks" class="btn btn-secondary">Back to List</a>
+    </div>
+
+    <!-- Task Information -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Task Information</h5>
+            @if (!isEditing)
+            {
+                <button class="btn btn-sm btn-primary" @onclick="() => isEditing = true">Edit</button>
+            }
+        </div>
+        <div class="card-body">
+            @if (isEditing)
+            {
+                <EditForm Model="task" OnValidSubmit="SaveTask" FormName="taskEditForm">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" />
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Company</label>
+                            <InputSelect @bind-Value="task.CompanyId" class="form-select">
+                                @if (companies != null)
+                                {
+                                    @foreach (var company in companies)
+                                    {
+                                        <option value="@company.Id">@company.Name</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Priority</label>
+                            <InputSelect @bind-Value="task.Priority" class="form-select">
+                                @foreach (TaskPriority priority in Enum.GetValues(typeof(TaskPriority)))
+                                {
+                                    <option value="@priority">@priority</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <InputSelect @bind-Value="task.Status" class="form-select">
+                                @foreach (TaskItemStatus status in Enum.GetValues(typeof(TaskItemStatus)))
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Due Date</label>
+                            <InputDate @bind-Value="task.DueDate" class="form-control" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <InputTextArea @bind-Value="task.Description" class="form-control" rows="4" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Assigned To</label>
+                        <InputSelect @bind-Value="task.AssignedId" class="form-select">
+                            @if (users != null)
+                            {
+                                @foreach (var user in users)
+                                {
+                                    <option value="@user.Id">@user.Name @user.Surname (@user.Email)</option>
+                                }
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+                    </div>
+                </EditForm>
+            }
+            else
+            {
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <strong>Company:</strong> @task.Company?.Name
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Priority:</strong>
+                        <span class="badge bg-@GetPriorityColor(task.Priority)">@task.Priority</span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Status:</strong>
+                        <span class="badge bg-@GetStatusColor(task.Status)">@task.Status</span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Created By:</strong> @task.Creator?.Name @task.Creator?.Surname
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Assigned To:</strong> @task.Assigned?.Name @task.Assigned?.Surname
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Created Date:</strong> @task.CreatedDate.ToShortDateString()
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Due Date:</strong>
+                        @if (task.DueDate.HasValue)
+                        {
+                            <span class="@(task.DueDate < DateTime.Now && task.Status != TaskItemStatus.Finished ? "text-danger fw-bold" : "")">
+                                @task.DueDate.Value.ToShortDateString()
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">Not set</span>
+                        }
+                    </div>
+                    <div class="col-12 mb-3">
+                        <strong>Description:</strong>
+                        <p class="mt-2">@task.Description</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Checklist -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Checklist</h5>
+        </div>
+        <div class="card-body">
+            @if (checklistItems != null && checklistItems.Any())
+            {
+                <ul class="list-group mb-3">
+                    @foreach (var item in checklistItems.OrderBy(c => c.Order))
+                    {
+                        <li class="list-group-item d-flex align-items-center">
+                            <input type="checkbox" class="form-check-input me-3" checked="@item.IsChecked"
+                                   @onchange="() => ToggleChecklistItem(item.Id)" />
+                            <div class="flex-grow-1">
+                                <span class="@(item.IsChecked ? "text-decoration-line-through text-muted" : "")">
+                                    @item.Description
+                                </span>
+                                @if (item.DueDate.HasValue)
+                                {
+                                    <small class="ms-2 @(item.DueDate < DateTime.Now && !item.IsChecked ? "text-danger" : "text-muted")">
+                                        Due: @item.DueDate.Value.ToShortDateString()
+                                    </small>
+                                }
+                            </div>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteChecklistItem(item.Id)">Delete</button>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="text-muted">No checklist items yet.</p>
+            }
+
+            <!-- Add new checklist item -->
+            <div class="mt-3">
+                <h6>Add Checklist Item</h6>
+                <EditForm Model="newChecklistItem" OnValidSubmit="AddChecklistItem" FormName="addChecklistForm">
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <InputText @bind-Value="newChecklistItem.Description" class="form-control" placeholder="Item description" />
+                        </div>
+                        <div class="col-md-3">
+                            <InputDate @bind-Value="newChecklistItem.DueDate" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100">Add Item</button>
+                        </div>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Documents</h5>
+        </div>
+        <div class="card-body">
+            @if (documents != null && documents.Any())
+            {
+                <ul class="list-group mb-3">
+                    @foreach (var doc in documents.OrderByDescending(d => d.UploadedAt))
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>@doc.FileName</strong>
+                                <br />
+                                <small class="text-muted">
+                                    Uploaded by @doc.UploadedBy?.Name @doc.UploadedBy?.Surname on @doc.UploadedAt.ToString("g")
+                                </small>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="/api/documents/@doc.Id/download" class="btn btn-sm btn-primary" target="_blank">Download</a>
+                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteDocument(doc.Id)">Delete</button>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="text-muted">No documents uploaded yet.</p>
+            }
+
+            <!-- Upload new document -->
+            <div class="mt-3">
+                <h6>Upload Document</h6>
+                <div class="mb-2">
+                    <InputFile OnChange="HandleFileSelected" class="form-control" />
+                </div>
+                @if (!string.IsNullOrEmpty(uploadMessage))
+                {
+                    <div class="alert alert-info">@uploadMessage</div>
+                }
+                <button class="btn btn-primary" @onclick="UploadDocument" disabled="@(selectedFile == null)">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comments -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Comments</h5>
+        </div>
+        <div class="card-body">
+            @if (comments != null && comments.Any())
+            {
+                @foreach (var comment in comments.OrderBy(c => c.Created))
+                {
+                    <div class="border-bottom mb-3 pb-3">
+                        <div class="d-flex justify-content-between">
+                            <strong>@comment.Author?.Name @comment.Author?.Surname</strong>
+                            <small class="text-muted">@comment.Created.ToString("g")</small>
+                        </div>
+                        <p class="mb-0 mt-2">@comment.Text</p>
+                    </div>
+                }
+            }
+            else
+            {
+                <p class="text-muted">No comments yet.</p>
+            }
+
+            <!-- Add new comment -->
+            <div class="mt-3">
+                <h6>Add Comment</h6>
+                <EditForm Model="newComment" OnValidSubmit="AddComment" FormName="addCommentForm">
+                    <div class="mb-2">
+                        <InputTextArea @bind-Value="newComment.Text" class="form-control" rows="3" placeholder="Write your comment..." />
+                    </div>
+                    <button type="submit" class="btn btn-primary">Post Comment</button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private TaskItem? task { get; set; }
+
+    private List<Comment>? comments;
+    private List<CheckListItem>? checklistItems;
+    private List<Company>? companies;
+    private List<User>? users;
+    private List<Document>? documents;
+
+    private bool isEditing = false;
+    private TaskItem? originalTask;
+
+    [SupplyParameterFromForm]
+    private Comment newComment { get; set; } = new();
+
+    [SupplyParameterFromForm]
+    private CheckListItem newChecklistItem { get; set; } = new();
+
+    private string? currentUserId;
+    private IBrowserFile? selectedFile;
+    private string? uploadMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTask();
+        await LoadComments();
+        await LoadChecklistItems();
+        await LoadDocuments();
+        companies = await CompanyService.GetAllCompaniesAsync();
+        users = UserManager.Users.ToList();
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    }
+
+    private async Task LoadTask()
+    {
+        task = await TaskService.GetTaskByIdAsync(Id);
+        originalTask = task;
+    }
+
+    private async Task LoadComments()
+    {
+        comments = await CommentService.GetCommentsByTaskIdAsync(Id);
+    }
+
+    private async Task LoadChecklistItems()
+    {
+        checklistItems = await CheckListService.GetCheckListItemsByTaskIdAsync(Id);
+    }
+
+    private async Task SaveTask()
+    {
+        if (task != null)
+        {
+            await TaskService.UpdateTaskAsync(task);
+            isEditing = false;
+            await LoadTask();
+        }
+    }
+
+    private void CancelEdit()
+    {
+        task = originalTask;
+        isEditing = false;
+    }
+
+    private async Task ToggleChecklistItem(int itemId)
+    {
+        await CheckListService.ToggleCheckListItemAsync(itemId);
+        await LoadChecklistItems();
+    }
+
+    private async Task DeleteChecklistItem(int itemId)
+    {
+        await CheckListService.DeleteCheckListItemAsync(itemId);
+        await LoadChecklistItems();
+    }
+
+    private async Task AddChecklistItem()
+    {
+        if (!string.IsNullOrWhiteSpace(newChecklistItem.Description))
+        {
+            newChecklistItem.TaskItemId = Id;
+            await CheckListService.AddCheckListItemAsync(newChecklistItem);
+            newChecklistItem = new();
+            await LoadChecklistItems();
+        }
+    }
+
+    private async Task AddComment()
+    {
+        if (!string.IsNullOrWhiteSpace(newComment.Text) && currentUserId != null)
+        {
+            newComment.TaskItemId = Id;
+            newComment.AuthorId = currentUserId;
+            newComment.Created = DateTime.Now;
+            await CommentService.AddCommentAsync(newComment);
+            newComment = new();
+            await LoadComments();
+        }
+    }
+
+    private async Task LoadDocuments()
+    {
+        documents = await DocumentService.GetDocumentsByTaskIdAsync(Id);
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        uploadMessage = null;
+    }
+
+    private async Task UploadDocument()
+    {
+        if (selectedFile != null && currentUserId != null)
+        {
+            try
+            {
+                uploadMessage = "Uploading...";
+
+                using var memoryStream = new MemoryStream();
+                await selectedFile.OpenReadStream(maxAllowedSize: 10485760).CopyToAsync(memoryStream);
+
+                var document = new Document
+                {
+                    FileName = selectedFile.Name,
+                    ContentType = selectedFile.ContentType,
+                    FileData = memoryStream.ToArray(),
+                    TaskItemId = Id,
+                    UploadedById = currentUserId
+                };
+
+                await DocumentService.UploadDocumentAsync(document);
+                selectedFile = null;
+                uploadMessage = "Upload successful!";
+                await LoadDocuments();
+            }
+            catch (Exception ex)
+            {
+                uploadMessage = $"Error uploading file: {ex.Message}";
+            }
+        }
+    }
+
+    private async Task DeleteDocument(int documentId)
+    {
+        await DocumentService.DeleteDocumentAsync(documentId);
+        await LoadDocuments();
+    }
+
+    private string GetPriorityColor(TaskPriority priority)
+    {
+        return priority switch
+        {
+            TaskPriority.Minimal => "success",
+            TaskPriority.Low => "info",
+            TaskPriority.Medium => "warning",
+            TaskPriority.High => "danger",
+            TaskPriority.Critical => "danger",
+            _ => "secondary"
+        };
+    }
+
+    private string GetStatusColor(TaskItemStatus status)
+    {
+        return status switch
+        {
+            TaskItemStatus.New => "primary",
+            TaskItemStatus.InProgress => "info",
+            TaskItemStatus.Finished => "success",
+            TaskItemStatus.Cancelled => "dark",
+            _ => "secondary"
+        };
+    }
+}
