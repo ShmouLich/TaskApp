@@ -8,5 +8,5 @@ public interface ICompanyService
     Task<Company?> GetCompanyByIdAsync(int id);
     Task<Company> CreateCompanyAsync(Company company);
     Task UpdateCompanyAsync(Company company);
-    Task DeleteCompanyAsync(Company company);
+    Task DeleteCompanyAsync(int id);
 }
