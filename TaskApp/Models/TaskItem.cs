@@ -25,7 +25,7 @@ public class TaskItem
     public Company Company { get; set; } = null!;
     public User Assigned { get; set; } = null!;
     public User Creator { get; set; } = null!;
-    public ICollection<Comment> Comemnts { get; set; } = new List<Comment>();
+    public ICollection<Comment> Comments { get; set; } = new List<Comment>();
     public ICollection<Document> Documents { get; set; } = new List<Document>();
     public ICollection<CheckListItem> CheckListItems { get; set; } = new List<CheckListItem>();
     
